@@ -38,20 +38,52 @@ docker build -t yanifend-mcp . && docker run --rm -i yanifend-mcp
 
 ## Tools
 
+**Personages & integration**
+
 | Tool | What it does |
 |---|---|
-| `list_personages` | List the feedback personages defined on the connected YaniFend site |
+| `list_personages` | List the feedback personages on the connected YaniFend site |
+| `create_personage` | Create a new personage = a new questionary + character + embeddable API key (plan-limited) |
+| `get_company_profile` | Read company profile + plan limits (personages used / allowed) |
+| `get_allowed_domains` | Read the widget's allowed domains (CORS) + how to add one |
+| `list_integration_keys` | API key + ready-to-paste embed snippet for every personage |
+| `get_embed_snippet` | Embed snippet (key + `<script>` tag) for one personage |
+
+**Questionary authoring**
+
+| Tool | What it does |
+|---|---|
 | `list_questions` | Read the current questionary |
-| `create_question` | Add a new question |
-| `update_question` | Edit an existing question's text, type, or order |
+| `create_question` | Add a question (incl. RATE scale + icon); auto-wires an animation |
+| `update_question` | Edit a question's text, type, order, or RATE config |
 | `delete_question` | Remove a question |
-| `list_question_options` | List options for a multiple-choice question |
-| `create_question_option` | Add an option to a question |
+| `list_question_options` | List options for a choice-style question |
+| `create_question_option` | Add an option (CONTINUE / CLOSE / NOTIFY_MANAGER / GOTO_QUESTION; optional position) |
 | `update_question_option` | Edit an option |
 | `delete_question_option` | Remove an option |
+| `reorder_question_options` | Reorder options without delete/recreate |
+| `clone_questionary` | Copy all questions + options from one personage onto another in one call |
+
+**Answers & hosted forms**
+
+| Tool | What it does |
+|---|---|
 | `list_answers` | Pull the latest collected answers |
+| `list_hosted_forms` | List shareable `/f/{slug}` feedback pages (no embed, no CORS) |
+| `create_hosted_form` | Create a shareable hosted form for a personage |
 
 Every tool is scoped to the authenticated YaniFend account — you only see and edit your own site's data.
+
+## Prompts
+
+Reusable starting points your MCP client can offer:
+
+| Prompt | What it does |
+|---|---|
+| `new_feedback_form` | Spin up a new personage + questionary for a goal, then return the embed snippet |
+| `embed_widget` | Walk through embedding a widget on a site, incl. the allowed-domains check |
+| `clone_form` | Copy an existing questionary onto another personage |
+| `review_feedback` | Summarize the latest collected answers for a personage |
 
 ## About YaniFend
 
