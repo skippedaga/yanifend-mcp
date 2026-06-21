@@ -2,7 +2,7 @@
 
 Manage your YaniFend feedback questionary and read collected answers directly from Claude (Desktop, Code, or claude.ai) via the Model Context Protocol.
 
-YaniFend is a WordPress-native feedback widget that lets visitors leave structured feedback on your site. This MCP server lets an LLM client work with the YaniFend backoffice on behalf of a logged-in site owner — list personages, manage questions, and pull in collected answers — without leaving the chat.
+YaniFend is a drop-in feedback widget that lets visitors leave structured feedback on **any** website — a single script tag, no framework required (custom sites, SPAs, WordPress, and more). This MCP server lets an LLM client work with the YaniFend backoffice on behalf of a logged-in site owner — list personages, manage questions, and pull in collected answers — without leaving the chat.
 
 [![skippedaga/yanifend-mcp MCP server](https://glama.ai/mcp/servers/skippedaga/yanifend-mcp/badges/score.svg)](https://glama.ai/mcp/servers/skippedaga/yanifend-mcp)
 
@@ -55,7 +55,7 @@ Every tool is scoped to the authenticated YaniFend account — you only see and 
 
 ## About YaniFend
 
-[yanifend.com](https://yanifend.com) — a WordPress plugin that lets HR / recruiter / SaaS sites collect structured visitor feedback with personage-based segmentation. The MCP server is the LLM-native way to manage your YaniFend instance.
+[yanifend.com](https://yanifend.com) — a feedback widget that lets any website (HR / recruiter / SaaS / e-commerce, custom-built or WordPress) collect structured visitor feedback with personage-based segmentation. Drop in one script tag, or use the WordPress plugin. The MCP server is the LLM-native way to manage your YaniFend instance.
 
 ## License
 
