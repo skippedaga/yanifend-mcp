@@ -1,0 +1,243 @@
+{
+  "manifest_version": "0.2",
+  "name": "yanifend",
+  "display_name": "YaniFend",
+  "version": "0.3.0",
+  "description": "Collect and act on website visitor feedback: questionnaires, hosted forms, answers, notifications.",
+  "long_description": "YaniFend collects structured visitor feedback on any website through a friendly conversational widget — a one-line embed for custom sites, SPAs and WordPress, plus hosted stand-alone feedback pages.\n\nThis extension connects Claude to your YaniFend account so you can design questionnaires (text, options, ratings and more), fine-tune the widget, create hosted forms, pull collected answers for analysis, and manage notification channels (Telegram, Slack, email …) — all scoped strictly to your own account. Destructive tools are annotated so Claude asks before deleting.",
+  "author": {
+    "name": "YaniFend",
+    "email": "support@yanifend.com",
+    "url": "https://yanifend.com"
+  },
+  "homepage": "https://yanifend.com",
+  "documentation": "https://docs.yanifend.com",
+  "support": "https://github.com/skippedaga/yanifend-mcp/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
+      "env": {
+        "YANIFEND_EMAIL": "${user_config.email}",
+        "YANIFEND_PASSWORD": "${user_config.password}"
+      }
+    }
+  },
+  "user_config": {
+    "email": {
+      "type": "string",
+      "title": "YaniFend account email",
+      "description": "The email you sign in to dashboard.yanifend.com with. No account yet? Sign up free at https://dashboard.yanifend.com.",
+      "required": true
+    },
+    "password": {
+      "type": "string",
+      "title": "YaniFend account password",
+      "description": "Your YaniFend password. Stored by Claude Desktop's OS keychain; only ever sent to app.yanifend.com over HTTPS.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "tools": [
+    {
+      "name": "create_notification_channel",
+      "description": "Create an outbound channel. type is one of TELEGRAM, SLACK, TEAMS, EMAIL, WHATSAPP, VIBER. The secret goes in 'credentials' (Telegram: bot token; Slack/Teams: the incoming-webhook URL; Email: leave em"
+    },
+    {
+      "name": "delete_notification_channel",
+      "description": "Delete a channel (soft-delete) and its routes. Existing delivery-log rows are kept for audit."
+    },
+    {
+      "name": "delete_notification_route",
+      "description": "Remove one event-type route from a channel."
+    },
+    {
+      "name": "list_notification_channels",
+      "description": "List the client's outbound notification channels (Telegram, Slack, Teams, Email, WhatsApp, Viber). Returns id, type, name, enabled, the (decrypted) credentials and config, and whether the type is impl"
+    },
+    {
+      "name": "list_notification_deliveries",
+      "description": "Recent delivery-log rows (newest first): which event went to which channel and whether it was SENT / FAILED / SKIPPED / PENDING, plus any error. Use to debug why a notification didn't arrive."
+    },
+    {
+      "name": "list_notification_event_types",
+      "description": "List the catalog of event types a channel can be routed to send: FEEDBACK_SUBMITTED, LOW_RATING, HIGH_RATING, MANAGER_ESCALATION, KEYWORD_MATCH, QUOTA_THRESHOLD, DIGEST (and any custom ones). Use an e"
+    },
+    {
+      "name": "list_notification_routes",
+      "description": "List the event types a channel is routed to send, with each route's tuning params."
+    },
+    {
+      "name": "send_test_notification",
+      "description": "Send a one-off test message to a channel right now to verify its credentials/config. Returns whether it succeeded, was skipped (placeholder type / missing config), or failed (with the error)."
+    },
+    {
+      "name": "set_notification_route",
+      "description": "Route an event type to a channel (creates the route, or updates it if it already exists). eventKey is one from list_notification_event_types. paramsJson tunes it: {\"threshold\":3} for LOW_RATING, {\"key"
+    },
+    {
+      "name": "update_notification_channel",
+      "description": "Update a channel. Any null argument is left unchanged — pass credentials only when rotating the secret."
+    },
+    {
+      "name": "clone_questionary",
+      "description": "Copy ALL questions and their answer options from one personage's questionary onto another personage in a single call — instead of recreating them by hand. Both personages must belong to the authentica"
+    },
+    {
+      "name": "create_hosted_form",
+      "description": "Create a hosted form (a shareable feedback page at /f/{slug}) for one of the client's personages — an integration that needs no website embed and is not subject to allowed-domains/CORS. Give the perso"
+    },
+    {
+      "name": "create_personage",
+      "description": "Create a NEW personage — a fresh questionary plus its own character (cloned template animations) and a ready-to-embed plugin/API key. This is how you add a new questionary; a questionary cannot exist "
+    },
+    {
+      "name": "create_question",
+      "description": "Add a new question to the given personage's questionary. type must be one of: TEXT, TEXTAREA, OPTION, RATE, MULTIPLE_CHOICE, CHECKBOX, DROPDOWN, DATE, TIME, DATETIME, NUMBER, FILE_UPLOAD, EMAIL, PHONE"
+    },
+    {
+      "name": "create_question_option",
+      "description": "Add an answer option to a choice-style question. actionType controls what happens when a respondent picks it: CONTINUE (default, go to next question), CLOSE (end the form), NOTIFY_MANAGER (end and ale"
+    },
+    {
+      "name": "delete_personage",
+      "description": "Soft-delete a personage (form) and its widget. Collected answers are kept for analytics, but the form stops loading and disappears from the dashboard. Refuses to delete the client's last remaining for"
+    },
+    {
+      "name": "delete_question",
+      "description": "Delete a question from a questionary. Fails if it is the last question in the form (a form must always keep at least one question)."
+    },
+    {
+      "name": "delete_question_option",
+      "description": "Delete an answer option from a choice-style question."
+    },
+    {
+      "name": "get_allowed_domains",
+      "description": "Read the authenticated client's allowed widget domains (the CORS allow-list) and get step-by-step instructions for adding a new one. Returns the currently authorized origins as a list, plus a `setup` "
+    },
+    {
+      "name": "get_character",
+      "description": "Report which character (avatar) a personage currently uses — its animation style, e.g. Girl, Astronaut, Cook or Doctor — plus the list of characters the client's plan can switch to. `character` is nul"
+    },
+    {
+      "name": "get_company_profile",
+      "description": "Read the authenticated client's company profile / parameters: company name, site URL, allowed widget domains (allowedOrigins — the comma/space-separated CORS allow-list that decides which sites may em"
+    },
+    {
+      "name": "get_embed_snippet",
+      "description": "Get the ready-to-paste embed for ONE personage: its public API key, the widget script URL and a complete <script> tag to drop into a site before </body>. Like list_integration_keys but scoped to a sin"
+    },
+    {
+      "name": "list_answers",
+      "description": "Fetch the latest answers respondents submitted for the given personage's questionary, newest first. Each row has the question text, the answer, its status and timestamp."
+    },
+    {
+      "name": "list_hosted_forms",
+      "description": "List the hosted forms (shareable feedback pages) of the authenticated client. A hosted form is an alternative to embedding the widget: it's a standalone page at /f/{slug} you can paste into emails, QR"
+    },
+    {
+      "name": "list_integration_keys",
+      "description": "Get everything needed to embed a personage's widget on a website, for the authenticated client. Returns, per personage: its id and name, the public API key (the data-api-key / X-Api-Key value), the wi"
+    },
+    {
+      "name": "list_personages",
+      "description": "List the personages (form characters) belonging to the authenticated client. Returns each personage's id and name. Use a personage id to manage its questionary or pull answers."
+    },
+    {
+      "name": "list_question_options",
+      "description": "List the answer options of an OPTION/MULTIPLE_CHOICE/CHECKBOX/DROPDOWN question. Each option has its id, text, checkbox flag, and the action it triggers (CONTINUE / CLOSE / NOTIFY_MANAGER / GOTO_QUEST"
+    },
+    {
+      "name": "list_questions",
+      "description": "List all questions in the questionary of the given personage, ordered by step. Each question includes its id, text, type, step, optional flag and any answer options."
+    },
+    {
+      "name": "reorder_question_options",
+      "description": "Reorder a question's answer options without deleting/recreating them. Pass the option ids in the exact order you want them rendered; every existing option of the question must appear exactly once. Ret"
+    },
+    {
+      "name": "set_character",
+      "description": "Change a personage's character (avatar) — re-skins all of its animations to the chosen character (Girl, Astronaut, Cook or Doctor), keeping the questionary intact. Plan-gated: Astronaut/Cook need BASI"
+    },
+    {
+      "name": "update_question",
+      "description": "Edit an existing question. Only the fields you pass are changed; omit a field to leave it as-is. Returns the updated question."
+    },
+    {
+      "name": "update_question_option",
+      "description": "Edit an answer option. Only the fields you pass are changed. Pass actionType together with actionPayload to change or clear the payload. For GOTO_QUESTION, actionPayload is the id of the question to j"
+    },
+    {
+      "name": "update_widget_style",
+      "description": "Restyle a personage's widget: primary/accent colour (hex like #e91e63), launcher/character size in px (80–240), and corner position (bottom-right or bottom-left). Persists to the plugin style the widg"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "new_feedback_form",
+      "description": "Create a new personage + questionary for a use case, then hand back the embed snippet.",
+      "arguments": [
+        "name",
+        "goal"
+      ],
+      "text": "Create a new YaniFend feedback form for my goal."
+    },
+    {
+      "name": "embed_widget",
+      "description": "Walk through embedding a personage's widget on a site, including the allowed-domains check.",
+      "arguments": [
+        "personage",
+        "site"
+      ],
+      "text": "Help me embed my YaniFend widget."
+    },
+    {
+      "name": "clone_form",
+      "description": "Copy an existing questionary onto another personage in one step.",
+      "arguments": [
+        "from",
+        "to"
+      ],
+      "text": "Clone my YaniFend questionary."
+    },
+    {
+      "name": "review_feedback",
+      "description": "Summarize the latest collected answers for a personage.",
+      "arguments": [
+        "personage"
+      ],
+      "text": "Summarize my latest YaniFend feedback."
+    }
+  ],
+  "keywords": [
+    "feedback",
+    "survey",
+    "questionnaire",
+    "widget",
+    "customer-feedback",
+    "forms"
+  ],
+  "license": "MIT",
+  "privacy_policies": [
+    "https://yanifend.com/privacy"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skippedaga/yanifend-mcp.git"
+  },
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=20"
+    }
+  }
+}

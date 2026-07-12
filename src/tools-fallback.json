@@ -1,0 +1,997 @@
+{
+  "tools": [
+    {
+      "name": "create_notification_channel",
+      "title": "Create notification channel",
+      "description": "Create an outbound channel. type is one of TELEGRAM, SLACK, TEAMS, EMAIL, WHATSAPP, VIBER. The secret goes in 'credentials' (Telegram: bot token; Slack/Teams: the incoming-webhook URL; Email: leave empty). Non-secret settings go in configJson, e.g. Telegram {\"chatId\":\"123\"} or Email {\"to\":[\"ops@acme.com\"]}. After creating, attach event types with set_notification_route. Credentials are encrypted at rest.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Channel type: TELEGRAM, SLACK, TEAMS, EMAIL, WHATSAPP or VIBER"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name, e.g. \"Ops Slack\""
+          },
+          "configJson": {
+            "type": "string",
+            "description": "Non-secret JSON config (e.g. {\"chatId\":\"123\"} or {\"to\":[\"ops@acme.com\"]})"
+          },
+          "credentials": {
+            "type": "string",
+            "description": "The secret: Telegram bot token, or the Slack/Teams incoming-webhook URL"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "configJson",
+          "credentials"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "delete_notification_channel",
+      "title": "Delete notification channel",
+      "description": "Delete a channel (soft-delete) and its routes. Existing delivery-log rows are kept for audit.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the channel to delete"
+          }
+        },
+        "required": [
+          "channelId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "delete_notification_route",
+      "title": "Delete notification route",
+      "description": "Remove one event-type route from a channel.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the channel"
+          },
+          "routeId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the route to delete (from list_notification_routes)"
+          }
+        },
+        "required": [
+          "channelId",
+          "routeId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_notification_channels",
+      "title": "List notification channels",
+      "description": "List the client's outbound notification channels (Telegram, Slack, Teams, Email, WhatsApp, Viber). Returns id, type, name, enabled, the (decrypted) credentials and config, and whether the type is implemented yet (WhatsApp/Viber are placeholders awaiting a first-party bot).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_notification_deliveries",
+      "title": "List notification deliveries",
+      "description": "Recent delivery-log rows (newest first): which event went to which channel and whether it was SENT / FAILED / SKIPPED / PENDING, plus any error. Use to debug why a notification didn't arrive.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Max rows to return (1–200, default 50)"
+          }
+        },
+        "required": [
+          "limit"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_notification_event_types",
+      "title": "List notification event types",
+      "description": "List the catalog of event types a channel can be routed to send: FEEDBACK_SUBMITTED, LOW_RATING, HIGH_RATING, MANAGER_ESCALATION, KEYWORD_MATCH, QUOTA_THRESHOLD, DIGEST (and any custom ones). Use an event key with set_notification_route. RATING/QUOTA events accept a numeric threshold; KEYWORD_MATCH accepts keywords; DIGEST accepts a cadence.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_notification_routes",
+      "title": "List notification routes",
+      "description": "List the event types a channel is routed to send, with each route's tuning params.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the channel"
+          }
+        },
+        "required": [
+          "channelId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "send_test_notification",
+      "title": "Send test notification",
+      "description": "Send a one-off test message to a channel right now to verify its credentials/config. Returns whether it succeeded, was skipped (placeholder type / missing config), or failed (with the error).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the channel to test"
+          }
+        },
+        "required": [
+          "channelId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "set_notification_route",
+      "title": "Set notification route",
+      "description": "Route an event type to a channel (creates the route, or updates it if it already exists). eventKey is one from list_notification_event_types. paramsJson tunes it: {\"threshold\":3} for LOW_RATING, {\"keywords\":[\"refund\",\"cancel\"]} for KEYWORD_MATCH, {\"cadence\":\"WEEKLY\"} for DIGEST.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the channel to route to"
+          },
+          "eventKey": {
+            "type": "string",
+            "description": "Event type key, e.g. LOW_RATING (see list_notification_event_types)"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this route is enabled (defaults to true)"
+          },
+          "paramsJson": {
+            "type": "string",
+            "description": "Optional per-route tuning as JSON (threshold / keywords / cadence)"
+          }
+        },
+        "required": [
+          "channelId",
+          "eventKey",
+          "enabled",
+          "paramsJson"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "update_notification_channel",
+      "title": "Update notification channel",
+      "description": "Update a channel. Any null argument is left unchanged — pass credentials only when rotating the secret.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the channel to update"
+          },
+          "name": {
+            "type": "string",
+            "description": "New display name, or null to keep"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable/disable the channel, or null to keep"
+          },
+          "configJson": {
+            "type": "string",
+            "description": "New non-secret JSON config, or null to keep"
+          },
+          "credentials": {
+            "type": "string",
+            "description": "New secret (token/webhook URL), or null to keep the stored one"
+          }
+        },
+        "required": [
+          "channelId",
+          "name",
+          "enabled",
+          "configJson",
+          "credentials"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "clone_questionary",
+      "title": "Clone questionary",
+      "description": "Copy ALL questions and their answer options from one personage's questionary onto another personage in a single call — instead of recreating them by hand. Both personages must belong to the authenticated client. By default the target's existing questions are kept and the copied ones are appended; pass replace=true to clear the target's questionary first. Returns counts of what was copied.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "fromPersonageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage to copy the questionary FROM"
+          },
+          "toPersonageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage to copy the questionary INTO"
+          },
+          "replace": {
+            "type": "boolean",
+            "description": "If true, delete the target's existing questions first (default false = append)"
+          }
+        },
+        "required": [
+          "fromPersonageId",
+          "toPersonageId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "create_hosted_form",
+      "title": "Create hosted form",
+      "description": "Create a hosted form (a shareable feedback page at /f/{slug}) for one of the client's personages — an integration that needs no website embed and is not subject to allowed-domains/CORS. Give the personage to use and an optional display name. Returns the new form including its slug and hostedFormPath; share {baseUrl}{hostedFormPath} with respondents. Does not consume a personage slot (it reuses an existing one).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "personageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage whose questionary this hosted form should collect answers for"
+          },
+          "name": {
+            "type": "string",
+            "description": "Optional display name for the form (defaults to \"Feedback\")"
+          }
+        },
+        "required": [
+          "personageId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "create_personage",
+      "title": "Create personage",
+      "description": "Create a NEW personage — a fresh questionary plus its own character (cloned template animations) and a ready-to-embed plugin/API key. This is how you add a new questionary; a questionary cannot exist without a personage. PLAN-LIMITED: FREE = 1 personage, BASIC = 5, PRO = unlimited. If the limit is reached this fails — do not retry; instead tell the user to upgrade (dashboard → Billing) or to rewrite/reuse their existing questionary (see get_company_profile for the current plan and usage). The new personage starts with a default starter questionary you can then edit with create_question / update_question. Returns the new personage id, its questionary (questionSetId), api key and embed-ready widget info.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name for the new personage / form, e.g. \"Checkout Survey\""
+          },
+          "templatePersonageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Optional id of a seeded template personage to clone the character animations from; omit for the default"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "create_question",
+      "title": "Create question",
+      "description": "Add a new question to the given personage's questionary. type must be one of: TEXT, TEXTAREA, OPTION, RATE, MULTIPLE_CHOICE, CHECKBOX, DROPDOWN, DATE, TIME, DATETIME, NUMBER, FILE_UPLOAD, EMAIL, PHONE, WEBSITE, IMAGE_UPLOAD. The new question is validated and automatically wired to one of the personage's animations (a PersonageAction) so the character plays a video when the widget reaches it — same as questions created during onboarding. Returns the created question.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "personageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage to add the question to"
+          },
+          "text": {
+            "type": "string",
+            "description": "The question text shown to respondents"
+          },
+          "type": {
+            "type": "string",
+            "description": "Question type, e.g. TEXT or OPTION"
+          },
+          "step": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Position of the question in the form (1-based); null appends to the end"
+          },
+          "isOptional": {
+            "type": "boolean",
+            "description": "Whether the respondent may skip this question (default false)"
+          },
+          "minVal": {
+            "type": "integer",
+            "format": "int32",
+            "description": "RATE only: lowest value on the scale (e.g. 1)"
+          },
+          "maxVal": {
+            "type": "integer",
+            "format": "int32",
+            "description": "RATE only: highest value on the scale (e.g. 5 or 10)"
+          },
+          "rateIcon": {
+            "type": "string",
+            "description": "RATE only: the icon/character to render per step, e.g. \"★\""
+          }
+        },
+        "required": [
+          "personageId",
+          "text",
+          "type"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "create_question_option",
+      "title": "Create question option",
+      "description": "Add an answer option to a choice-style question. actionType controls what happens when a respondent picks it: CONTINUE (default, go to next question), CLOSE (end the form), NOTIFY_MANAGER (end and alert the client; actionPayload can carry a note), or GOTO_QUESTION (conditional branching: actionPayload is the id of the question to jump to — it must belong to the same form, and jumps that would create a loop are rejected). Returns the created option.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the question to add the option to"
+          },
+          "text": {
+            "type": "string",
+            "description": "Option text shown to respondents"
+          },
+          "isCheckbox": {
+            "type": "boolean",
+            "description": "Whether this option renders as a checkbox (default false)"
+          },
+          "actionType": {
+            "type": "string",
+            "description": "Action on selection: CONTINUE, CLOSE, NOTIFY_MANAGER or GOTO_QUESTION (default CONTINUE)"
+          },
+          "actionPayload": {
+            "type": "string",
+            "description": "Optional payload for the action: a NOTIFY_MANAGER note, or the target question id for GOTO_QUESTION"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Render position among the options (1-based); omit to append to the end. Use reorder_question_options to reshuffle existing options."
+          },
+          "notifyManager": {
+            "type": "boolean",
+            "description": "YANI-13: when true, picking this option alerts the client's manager channels WITHOUT ending the form — escalation is independent of actionType (default false)"
+          }
+        },
+        "required": [
+          "questionId",
+          "text"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "delete_personage",
+      "title": "Delete personage",
+      "description": "Soft-delete a personage (form) and its widget. Collected answers are kept for analytics, but the form stops loading and disappears from the dashboard. Refuses to delete the client's last remaining form (create another first). Returns how many active personages remain.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "personageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage to delete"
+          }
+        },
+        "required": [
+          "personageId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "delete_question",
+      "title": "Delete question",
+      "description": "Delete a question from a questionary. Fails if it is the last question in the form (a form must always keep at least one question).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the question to delete"
+          }
+        },
+        "required": [
+          "questionId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "delete_question_option",
+      "title": "Delete question option",
+      "description": "Delete an answer option from a choice-style question.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "optionId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the option to delete"
+          }
+        },
+        "required": [
+          "optionId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_allowed_domains",
+      "title": "Get allowed domains",
+      "description": "Read the authenticated client's allowed widget domains (the CORS allow-list) and get step-by-step instructions for adding a new one. Returns the currently authorized origins as a list, plus a `setup` guide. Editing is self-serve in the dashboard (this tool is read-only): a domain must be listed here before the widget will load on it, otherwise the browser blocks it with a CORS 403. Use this to tell a user exactly which origin to add and how, e.g. when their embed shows a blank space.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_character",
+      "title": "Get personage character",
+      "description": "Report which character (avatar) a personage currently uses — its animation style, e.g. Girl, Astronaut, Cook or Doctor — plus the list of characters the client's plan can switch to. `character` is null for personages created before characters were tracked (treat as 'custom / unknown').",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "personageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage whose character to read"
+          }
+        },
+        "required": [
+          "personageId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_company_profile",
+      "title": "Get company profile",
+      "description": "Read the authenticated client's company profile / parameters: company name, site URL, allowed widget domains (allowedOrigins — the comma/space-separated CORS allow-list that decides which sites may embed the widget), industry, company size, language (langKey), plan tier (FREE/BASIC/PRO), and contact details. Also returns plan limits: personageLimit (-1 = unlimited), personagesUsed, and a planNote. IMPORTANT: on the FREE plan a client gets a SINGLE personage with one questionary — so do NOT try to create a second personage/form for a free user; instead suggest they either upgrade the plan (dashboard → Billing) or rewrite/reuse their existing questionary. Read-only. Call this alongside list_integration_keys when generating embed instructions: if the target site's origin isn't in allowedOrigins, tell the user to add it in the dashboard → Settings → Allowed Origins first (see get_allowed_domains), or the embed CORS-fails.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_embed_snippet",
+      "title": "Get embed snippet",
+      "description": "Get the ready-to-paste embed for ONE personage: its public API key, the widget script URL and a complete <script> tag to drop into a site before </body>. Like list_integration_keys but scoped to a single personage. Remember the embedding site's origin must be in the client's Allowed Domains (get_allowed_domains).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "personageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage to embed"
+          }
+        },
+        "required": [
+          "personageId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_answers",
+      "title": "List answers",
+      "description": "Fetch the latest answers respondents submitted for the given personage's questionary, newest first. Each row has the question text, the answer, its status and timestamp.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "personageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage whose answers to fetch"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum number of answers to return (default 50)"
+          }
+        },
+        "required": [
+          "personageId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_hosted_forms",
+      "title": "List hosted forms",
+      "description": "List the hosted forms (shareable feedback pages) of the authenticated client. A hosted form is an alternative to embedding the widget: it's a standalone page at /f/{slug} you can paste into emails, QR codes or chat — no website code needed, and CORS/allowed-domains don't apply. Each entry has its id, slug, name, the personage it uses, and the full hostedFormPath.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_integration_keys",
+      "title": "List integration keys",
+      "description": "Get everything needed to embed a personage's widget on a website, for the authenticated client. Returns, per personage: its id and name, the public API key (the data-api-key / X-Api-Key value), the widget script URL, and a ready-to-paste HTML embed snippet. To install: paste `embedSnippet` into the site's HTML before </body>. The same apiKey is sent as the `X-Api-Key` header when calling the public widget API (/publicApi/*). IMPORTANT: the embedding site's origin must be listed in the client's Allowed Domains (see get_company_profile.allowedOrigins) or the browser will block the widget with a CORS 403 — the `active` flag only reflects whether the personage itself is live, not whether the domain is authorized.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_personages",
+      "title": "List personages",
+      "description": "List the personages (form characters) belonging to the authenticated client. Returns each personage's id and name. Use a personage id to manage its questionary or pull answers.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_question_options",
+      "title": "List question options",
+      "description": "List the answer options of an OPTION/MULTIPLE_CHOICE/CHECKBOX/DROPDOWN question. Each option has its id, text, checkbox flag, and the action it triggers (CONTINUE / CLOSE / NOTIFY_MANAGER / GOTO_QUESTION — for GOTO_QUESTION, actionPayload is the id of the question the widget jumps to).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the question whose options to read"
+          }
+        },
+        "required": [
+          "questionId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_questions",
+      "title": "List questions",
+      "description": "List all questions in the questionary of the given personage, ordered by step. Each question includes its id, text, type, step, optional flag and any answer options.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "personageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage whose questionary to read"
+          }
+        },
+        "required": [
+          "personageId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "reorder_question_options",
+      "title": "Reorder question options",
+      "description": "Reorder a question's answer options without deleting/recreating them. Pass the option ids in the exact order you want them rendered; every existing option of the question must appear exactly once. Returns the options in their new order.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the question whose options to reorder"
+          },
+          "orderedOptionIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "All of the question's option ids, in the desired top-to-bottom order"
+          }
+        },
+        "required": [
+          "questionId",
+          "orderedOptionIds"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "set_character",
+      "title": "Set personage character",
+      "description": "Change a personage's character (avatar) — re-skins all of its animations to the chosen character (Girl, Astronaut, Cook or Doctor), keeping the questionary intact. Plan-gated: Astronaut/Cook need BASIC, Doctor needs PRO (Girl is free); on a locked choice it fails with the upgrade hint. Use get_character to see the allowed set. Returns the applied character.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "personageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage to restyle"
+          },
+          "character": {
+            "type": "string",
+            "description": "Character/avatar name: Girl, Astronaut, Cook or Doctor (case-insensitive)"
+          }
+        },
+        "required": [
+          "personageId",
+          "character"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "update_question",
+      "title": "Update question",
+      "description": "Edit an existing question. Only the fields you pass are changed; omit a field to leave it as-is. Returns the updated question.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the question to update"
+          },
+          "text": {
+            "type": "string",
+            "description": "New question text"
+          },
+          "type": {
+            "type": "string",
+            "description": "New question type"
+          },
+          "step": {
+            "type": "integer",
+            "format": "int32",
+            "description": "New 1-based position in the form"
+          },
+          "isOptional": {
+            "type": "boolean",
+            "description": "New optional flag"
+          },
+          "minVal": {
+            "type": "integer",
+            "format": "int32",
+            "description": "RATE only: lowest value on the scale"
+          },
+          "maxVal": {
+            "type": "integer",
+            "format": "int32",
+            "description": "RATE only: highest value on the scale"
+          },
+          "rateIcon": {
+            "type": "string",
+            "description": "RATE only: icon/character per step, e.g. \"★\""
+          }
+        },
+        "required": [
+          "questionId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "update_question_option",
+      "title": "Update question option",
+      "description": "Edit an answer option. Only the fields you pass are changed. Pass actionType together with actionPayload to change or clear the payload. For GOTO_QUESTION, actionPayload is the id of the question to jump to (same form only; loop-creating jumps are rejected). Returns the updated option.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "optionId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the option to update"
+          },
+          "text": {
+            "type": "string",
+            "description": "New option text"
+          },
+          "isCheckbox": {
+            "type": "boolean",
+            "description": "New checkbox flag"
+          },
+          "actionType": {
+            "type": "string",
+            "description": "New action: CONTINUE, CLOSE, NOTIFY_MANAGER or GOTO_QUESTION"
+          },
+          "actionPayload": {
+            "type": "string",
+            "description": "New action payload (only applied when actionType is also given)"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32",
+            "description": "New render position (1-based). For a full reshuffle prefer reorder_question_options."
+          },
+          "notifyManager": {
+            "type": "boolean",
+            "description": "YANI-13: set the notify-manager side-effect flag (escalates without closing the form; independent of actionType)"
+          }
+        },
+        "required": [
+          "optionId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "update_widget_style",
+      "title": "Update widget style",
+      "description": "Restyle a personage's widget: primary/accent colour (hex like #e91e63), launcher/character size in px (80–240), and corner position (bottom-right or bottom-left). Persists to the plugin style the widget applies on load — no re-embed needed. Only the fields you pass change; omit the rest to keep them. Returns the merged style JSON.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "personageId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id of the personage whose widget to restyle"
+          },
+          "primaryColor": {
+            "type": "string",
+            "description": "Primary colour as hex, e.g. #e91e63 (optional)"
+          },
+          "accentColor": {
+            "type": "string",
+            "description": "Accent colour as hex, e.g. #1a0a2e (optional)"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Launcher/character size in px, 80–240 (optional)"
+          },
+          "position": {
+            "type": "string",
+            "description": "Corner position: bottom-right or bottom-left (optional)"
+          }
+        },
+        "required": [
+          "personageId"
+        ]
+      },
+      "annotations": {
+        "title": "",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

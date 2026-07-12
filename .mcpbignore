@@ -1,0 +1,11 @@
+.git
+.gitignore
+src
+tsconfig.json
+test-proxy.mjs
+package-lock.json
+Dockerfile
+glama.json
+node_modules/.bin
+node_modules/typescript
+node_modules/@types

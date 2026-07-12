@@ -1,7 +1,7 @@
 {
   "name": "yanifend-mcp",
-  "version": "0.2.0",
-  "description": "MCP server for YaniFend — author your feedback questionary (personages, questions, options, hosted forms), get embed snippets, and read answers from Claude.",
+  "version": "0.3.0",
+  "description": "MCP server for YaniFend \u2014 author your feedback questionary (personages, questions, options, hosted forms), get embed snippets, and read answers from Claude.",
   "type": "module",
   "bin": {
     "yanifend-mcp": "dist/index.js"
@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/tools-fallback.json dist/",
     "start": "node dist/index.js"
   },
   "dependencies": {

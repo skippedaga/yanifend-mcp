@@ -1,6 +1,20 @@
 #!/usr/bin/env node
+/**
+ * YaniFend MCP — stdio proxy to the hosted YaniFend MCP server.
+ *
+ * Configured with a YaniFend account (email + password via MCPB user_config),
+ * it signs in against the public auth API, opens an authenticated streamable-HTTP
+ * MCP session to https://app.yanifend.com/mcp and forwards tools/list + tools/call
+ * verbatim — every tool, schema and annotation comes from the hosted server.
+ *
+ * Without credentials it still serves the embedded tool catalog (introspection
+ * for registries) and returns a configuration hint on any call.
+ */
+import { readFileSync } from "node:fs";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -8,234 +22,87 @@ import {
   GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-const REMOTE = process.env.YANIFEND_MCP_URL ?? "https://app.yanifend.com/mcp";
+const BASE = (process.env.YANIFEND_BASE_URL ?? "https://app.yanifend.com").replace(/\/+$/, "");
+const MCP_URL = `${BASE}/mcp`;
+const EMAIL = process.env.YANIFEND_EMAIL ?? "";
+const PASSWORD = process.env.YANIFEND_PASSWORD ?? "";
 
-type JsonSchema = {
-  type: "object";
-  properties: Record<string, unknown>;
-  required?: string[];
-  additionalProperties?: boolean;
-};
+const FALLBACK: { tools: unknown[] } = JSON.parse(
+  readFileSync(new URL("./tools-fallback.json", import.meta.url), "utf8"),
+);
 
-type ToolDef = { name: string; description: string; inputSchema: JsonSchema };
+// ── Auth: password sign-in against the public YaniFend auth API ──────────────
 
-const str = (description: string) => ({ type: "string", description });
-const int = (description: string) => ({ type: "integer", description });
-const bool = (description: string) => ({ type: "boolean", description });
+let cachedToken: { value: string; exp: number } | null = null;
 
-const schema = (properties: Record<string, unknown>, required: string[] = []): JsonSchema => ({
-  type: "object",
-  properties,
-  required,
-  additionalProperties: false,
-});
+function jwtExp(token: string): number {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+    return typeof payload.exp === "number" ? payload.exp : 0;
+  } catch {
+    return 0;
+  }
+}
 
-const RATE_MIN = int("RATE only: lowest value on the scale (e.g. 1).");
-const RATE_MAX = int("RATE only: highest value on the scale (e.g. 5 or 10).");
-const RATE_ICON = str('RATE only: icon/character to render per step, e.g. "★".');
+async function accessToken(): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (cachedToken && cachedToken.exp - now > 30) return cachedToken.value;
+  const res = await fetch(`${BASE}/back/auth/signin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: EMAIL, password: PASSWORD }),
+  });
+  if (!res.ok) {
+    throw new Error(
+      `YaniFend sign-in failed (HTTP ${res.status}). Check the email/password in the extension settings.`,
+    );
+  }
+  const body = (await res.json()) as { access_token?: string };
+  if (!body.access_token) throw new Error("YaniFend sign-in returned no access token.");
+  cachedToken = { value: body.access_token, exp: jwtExp(body.access_token) };
+  return cachedToken.value;
+}
 
-const TOOLS: ToolDef[] = [
-  // ── Personages & integration ──────────────────────────────────────────
-  {
-    name: "list_personages",
-    description: "List the feedback personages (form characters) on the connected YaniFend site, with id and name.",
-    inputSchema: schema({}),
-  },
-  {
-    name: "create_personage",
-    description:
-      "Create a NEW personage — a fresh questionary plus its own character and an embeddable API key. This is how you " +
-      "add a new questionary. Plan-limited (FREE = 1, BASIC = 5, PRO = unlimited); on the limit, upgrade or reuse the " +
-      "existing questionary.",
-    inputSchema: schema(
-      {
-        name: str('Display name for the new personage / form, e.g. "Checkout Survey".'),
-        templatePersonageId: int("Optional id of a seeded template personage to clone the character animations from."),
-      },
-      ["name"],
-    ),
-  },
-  {
-    name: "get_company_profile",
-    description:
-      "Read the client's company profile: name, site URL, allowed widget domains, industry, size, language, plan tier, " +
-      "contacts, plus plan limits (personageLimit / personagesUsed) and a planNote.",
-    inputSchema: schema({}),
-  },
-  {
-    name: "get_allowed_domains",
-    description:
-      "Read the client's allowed widget domains (the CORS allow-list) and get step-by-step instructions for adding one " +
-      "in the dashboard. A domain must be listed before the widget will load on it.",
-    inputSchema: schema({}),
-  },
-  {
-    name: "list_integration_keys",
-    description:
-      "Get the embed credentials for every personage: id, name, public API key, widget script URL and a ready-to-paste " +
-      "<script> tag.",
-    inputSchema: schema({}),
-  },
-  {
-    name: "get_embed_snippet",
-    description: "Get the ready-to-paste embed (api key + widget URL + <script> tag) for ONE personage.",
-    inputSchema: schema({ personageId: int("Id of the personage to embed.") }, ["personageId"]),
-  },
-  // ── Questions ─────────────────────────────────────────────────────────
-  {
-    name: "list_questions",
-    description: "Read the questionary of a personage, ordered by step. Includes each question's options.",
-    inputSchema: schema({ personageId: int("Id of the personage whose questionary to read.") }, ["personageId"]),
-  },
-  {
-    name: "create_question",
-    description:
-      "Add a new question to a personage's questionary. type ∈ TEXT, TEXTAREA, OPTION, RATE, MULTIPLE_CHOICE, CHECKBOX, " +
-      "DROPDOWN, DATE, TIME, DATETIME, NUMBER, FILE_UPLOAD, EMAIL, PHONE, WEBSITE, IMAGE_UPLOAD. Auto-wires an animation.",
-    inputSchema: schema(
-      {
-        personageId: int("Id of the personage to add the question to."),
-        text: str("The question text shown to respondents."),
-        type: str("Question type, e.g. TEXT or OPTION."),
-        step: int("1-based position in the form; omit to append."),
-        isOptional: bool("Whether the respondent may skip this question (default false)."),
-        minVal: RATE_MIN,
-        maxVal: RATE_MAX,
-        rateIcon: RATE_ICON,
-      },
-      ["personageId", "text", "type"],
-    ),
-  },
-  {
-    name: "update_question",
-    description: "Edit a question. Only the fields you pass are changed. Supports RATE scale (minVal/maxVal) and icon.",
-    inputSchema: schema(
-      {
-        questionId: int("Id of the question to update."),
-        text: str("New question text."),
-        type: str("New question type."),
-        step: int("New 1-based position in the form."),
-        isOptional: bool("New optional flag."),
-        minVal: RATE_MIN,
-        maxVal: RATE_MAX,
-        rateIcon: RATE_ICON,
-      },
-      ["questionId"],
-    ),
-  },
-  {
-    name: "delete_question",
-    description: "Delete a question (fails if it is the last one in the form).",
-    inputSchema: schema({ questionId: int("Id of the question to delete.") }, ["questionId"]),
-  },
-  // ── Options ───────────────────────────────────────────────────────────
-  {
-    name: "list_question_options",
-    description: "List the answer options of a choice-style question, in render order.",
-    inputSchema: schema({ questionId: int("Id of the question whose options to read.") }, ["questionId"]),
-  },
-  {
-    name: "create_question_option",
-    description:
-      "Add an answer option. actionType ∈ CONTINUE, CLOSE, NOTIFY_MANAGER, GOTO_QUESTION (actionPayload = target " +
-      "question id for GOTO_QUESTION). Optional position sets render order.",
-    inputSchema: schema(
-      {
-        questionId: int("Id of the question to add the option to."),
-        text: str("Option text shown to respondents."),
-        isCheckbox: bool("Whether this option renders as a checkbox (default false)."),
-        actionType: str("Action on selection: CONTINUE, CLOSE, NOTIFY_MANAGER or GOTO_QUESTION."),
-        actionPayload: str("NOTIFY_MANAGER note, or the target question id for GOTO_QUESTION."),
-        position: int("1-based render position; omit to append."),
-      },
-      ["questionId", "text"],
-    ),
-  },
-  {
-    name: "update_question_option",
-    description: "Edit an answer option. Only the fields you pass are changed; position moves it without delete/recreate.",
-    inputSchema: schema(
-      {
-        optionId: int("Id of the option to update."),
-        text: str("New option text."),
-        isCheckbox: bool("New checkbox flag."),
-        actionType: str("New action: CONTINUE, CLOSE, NOTIFY_MANAGER or GOTO_QUESTION."),
-        actionPayload: str("New action payload (applied when actionType is also given)."),
-        position: int("New 1-based render position."),
-      },
-      ["optionId"],
-    ),
-  },
-  {
-    name: "delete_question_option",
-    description: "Remove an answer option from a choice-style question.",
-    inputSchema: schema({ optionId: int("Id of the option to delete.") }, ["optionId"]),
-  },
-  {
-    name: "reorder_question_options",
-    description:
-      "Reorder a question's options without delete/recreate. Pass every option id of the question exactly once, in the " +
-      "desired top-to-bottom order.",
-    inputSchema: schema(
-      {
-        questionId: int("Id of the question whose options to reorder."),
-        orderedOptionIds: {
-          type: "array",
-          items: { type: "integer" },
-          description: "All of the question's option ids, in the desired order.",
-        },
-      },
-      ["questionId", "orderedOptionIds"],
-    ),
-  },
-  // ── Cloning, answers, hosted forms ────────────────────────────────────
-  {
-    name: "clone_questionary",
-    description:
-      "Copy ALL questions + options from one personage's questionary onto another in one call. Appends by default; " +
-      "replace=true clears the target first.",
-    inputSchema: schema(
-      {
-        fromPersonageId: int("Personage to copy the questionary FROM."),
-        toPersonageId: int("Personage to copy the questionary INTO."),
-        replace: bool("If true, delete the target's existing questions first (default false = append)."),
-      },
-      ["fromPersonageId", "toPersonageId"],
-    ),
-  },
-  {
-    name: "list_answers",
-    description: "Pull the latest collected answers for a personage's questionary, newest first.",
-    inputSchema: schema(
-      {
-        personageId: int("Id of the personage whose answers to fetch."),
-        limit: int("Max number of answers to return (default 50)."),
-      },
-      ["personageId"],
-    ),
-  },
-  {
-    name: "list_hosted_forms",
-    description:
-      "List the client's hosted forms — shareable /f/{slug} feedback pages that need no website embed and aren't subject " +
-      "to allowed-domains/CORS.",
-    inputSchema: schema({}),
-  },
-  {
-    name: "create_hosted_form",
-    description: "Create a shareable hosted form (/f/{slug}) for a personage — an alternative to embedding the widget.",
-    inputSchema: schema(
-      {
-        personageId: int("Personage whose questionary the hosted form collects answers for."),
-        name: str('Optional display name (defaults to "Feedback").'),
-      },
-      ["personageId"],
-    ),
-  },
-];
+// ── Remote MCP session (recreated when the short-lived token rolls over) ─────
 
-// MCP prompts — reusable starting points an end user can pick in the client UI. The `{{arg}}`
-// placeholders are filled from the prompt arguments and rendered into a user message.
+let remote: { client: Client; tokenExp: number } | null = null;
+
+async function remoteClient(): Promise<Client> {
+  const now = Math.floor(Date.now() / 1000);
+  if (remote && remote.tokenExp - now > 30) return remote.client;
+  if (remote) {
+    await remote.client.close().catch(() => {});
+    remote = null;
+  }
+  const token = await accessToken();
+  const client = new Client({ name: "yanifend-mcp-proxy", version: "0.3.0" });
+  const transport = new StreamableHTTPClientTransport(new URL(MCP_URL), {
+    requestInit: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  await client.connect(transport);
+  remote = { client, tokenExp: cachedToken?.exp ?? now + 60 };
+  return client;
+}
+
+async function withRemote<T>(fn: (client: Client) => Promise<T>): Promise<T> {
+  try {
+    return await fn(await remoteClient());
+  } catch (err) {
+    // One retry with a forced re-auth — covers a token that expired mid-session.
+    cachedToken = null;
+    if (remote) {
+      await remote.client.close().catch(() => {});
+      remote = null;
+    }
+    void err;
+    return await fn(await remoteClient());
+  }
+}
+
+const configured = Boolean(EMAIL && PASSWORD);
+
+// ── Prompts: local, no auth needed ────────────────────────────────────────────
+
 type PromptDef = {
   name: string;
   description: string;
@@ -289,14 +156,41 @@ const PROMPTS: PromptDef[] = [
   },
 ];
 
+// ── Server ────────────────────────────────────────────────────────────────────
+
 const server = new Server(
-  { name: "yanifend-mcp", version: "0.2.0" },
+  { name: "yanifend-mcp", version: "0.3.0" },
   { capabilities: { tools: {}, prompts: {} } },
 );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
-}));
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  if (!configured) return { tools: FALLBACK.tools };
+  try {
+    return { tools: (await withRemote((c) => c.listTools())).tools };
+  } catch {
+    // Auth outage shouldn't blank the catalog — serve the embedded copy.
+    return { tools: FALLBACK.tools };
+  }
+});
+
+server.setRequestHandler(CallToolRequestSchema, async (req) => {
+  if (!configured) {
+    return {
+      content: [
+        {
+          type: "text",
+          text:
+            "YaniFend account not configured. Open the extension settings and enter the email and password " +
+            "of your YaniFend account (sign up free at https://dashboard.yanifend.com), then try again.",
+        },
+      ],
+      isError: true,
+    };
+  }
+  return await withRemote((c) =>
+    c.callTool({ name: req.params.name, arguments: req.params.arguments ?? {} }),
+  );
+});
 
 server.setRequestHandler(ListPromptsRequestSchema, async () => ({
   prompts: PROMPTS.map((p) => ({ name: p.name, description: p.description, arguments: p.arguments })),
@@ -313,19 +207,5 @@ server.setRequestHandler(GetPromptRequestSchema, async (req) => {
     messages: [{ role: "user", content: { type: "text", text: prompt.template(args) } }],
   };
 });
-
-server.setRequestHandler(CallToolRequestSchema, async (req) => ({
-  content: [
-    {
-      type: "text",
-      text:
-        `Tool "${req.params.name}" must be executed against the hosted YaniFend MCP at ${REMOTE}.\n\n` +
-        `This stdio wrapper exists for registry introspection. To actually run tools, connect your MCP client ` +
-        `(Claude Desktop / claude.ai / Claude Code) directly to ${REMOTE} — it handles the OAuth 2.1 (PKCE + DCR) ` +
-        `flow against the user's YaniFend account.`,
-    },
-  ],
-  isError: true,
-}));
 
 await server.connect(new StdioServerTransport());
