@@ -6,9 +6,9 @@
   "description": "Collect and act on website visitor feedback: questionnaires, hosted forms, answers, notifications.",
   "long_description": "YaniFend collects structured visitor feedback on any website through a friendly conversational widget — a one-line embed for custom sites, SPAs and WordPress, plus hosted stand-alone feedback pages.\n\nThis extension connects Claude to your YaniFend account so you can design questionnaires (text, options, ratings and more), fine-tune the widget, create hosted forms, pull collected answers for analysis, and manage notification channels (Telegram, Slack, email …) — all scoped strictly to your own account. Destructive tools are annotated so Claude asks before deleting.",
   "author": {
-    "name": "YaniFend",
+    "name": "skippedaga",
     "email": "support@yanifend.com",
-    "url": "https://yanifend.com"
+    "url": "https://github.com/skippedaga"
   },
   "homepage": "https://yanifend.com",
   "documentation": "https://docs.yanifend.com",
