@@ -1,6 +1,6 @@
 # YaniFend MCP Server
 
-Manage your YaniFend feedback questionary and read collected answers directly from Claude (Desktop, Code, or claude.ai) via the Model Context Protocol.
+Manage your YaniFend feedback questionary and read collected answers directly from Claude on claude.ai via the Model Context Protocol.
 
 YaniFend is a drop-in feedback widget that lets visitors leave structured feedback on **any** website — a single script tag, no framework required (custom sites, SPAs, WordPress, and more). This MCP server lets an LLM client work with the YaniFend backoffice on behalf of a logged-in site owner — list personages, manage questions, and pull in collected answers — without leaving the chat.
 
@@ -12,19 +12,19 @@ YaniFend is a drop-in feedback widget that lets visitors leave structured feedba
 https://app.yanifend.com/mcp
 ```
 
-Streamable HTTP transport, OAuth 2.1 (PKCE + RFC 7591 Dynamic Client Registration). No pre-registration — Claude Desktop / claude.ai auto-register on first connect, then prompt you to log in to YaniFend (Google / GitHub / Facebook / LinkedIn / email).
+Streamable HTTP transport, OAuth 2.1 (PKCE + RFC 7591 Dynamic Client Registration). No pre-registration — claude.ai auto-registers on first connect, then prompts you to log in to YaniFend (Google / GitHub / Facebook / LinkedIn / email).
 
-### Claude Desktop / claude.ai
+> **Supported clients:** connecting to the hosted endpoint directly currently works from **Claude on claude.ai** only. Other MCP clients connecting directly — Claude Code, ChatGPT, Cursor and similar — are refused at sign-in and are not supported yet.
+
+### claude.ai
 
 Add a custom connector:
 - **Name:** YaniFend
 - **URL:** `https://app.yanifend.com/mcp`
 
-### Claude Code
+### Claude Code and other MCP clients
 
-```sh
-claude mcp add --transport http yanifend https://app.yanifend.com/mcp
-```
+Direct connections to the hosted endpoint are not supported yet: their sign-in callbacks (for Claude Code, a localhost redirect) are refused, so the connection can't complete. Use claude.ai for now.
 
 ## Alternative: desktop extension / local stdio proxy (this repo)
 
@@ -34,6 +34,9 @@ with your YaniFend account email + password (via the desktop-extension settings,
 every tool call to `https://app.yanifend.com/mcp` — same 33 tools, same schemas and
 annotations, strictly scoped to your own account. Without credentials it still serves the
 tool catalog for registry introspection and returns a configuration hint on any call.
+
+This is a separate sign-in path from the hosted connector above: it uses your YaniFend email and
+password, not the connector's OAuth sign-in, so the supported-clients note above doesn't describe it.
 
 ```sh
 npx -y yanifend-mcp
