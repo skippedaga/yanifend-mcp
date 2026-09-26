@@ -1,6 +1,6 @@
 # YaniFend MCP Server
 
-Manage your YaniFend feedback questionary and read collected answers directly from Claude on claude.ai via the Model Context Protocol.
+Manage your YaniFend feedback questionary and read collected answers directly from Claude, ChatGPT or Grok via the Model Context Protocol.
 
 YaniFend is a drop-in feedback widget that lets visitors leave structured feedback on **any** website — a single script tag, no framework required (custom sites, SPAs, WordPress, and more). This MCP server lets an LLM client work with the YaniFend backoffice on behalf of a logged-in site owner — list personages, manage questions, and pull in collected answers — without leaving the chat.
 
@@ -12,19 +12,45 @@ YaniFend is a drop-in feedback widget that lets visitors leave structured feedba
 https://app.yanifend.com/mcp
 ```
 
-Streamable HTTP transport, OAuth 2.1 (PKCE + RFC 7591 Dynamic Client Registration). No pre-registration — claude.ai auto-registers on first connect, then prompts you to log in to YaniFend (Google / GitHub / Facebook / LinkedIn / email).
+Streamable HTTP transport, OAuth 2.1 (PKCE + RFC 7591 Dynamic Client Registration). No pre-registration — Claude and ChatGPT register themselves on first connect; Grok uses the public client `mcp-client` with PKCE. Each then prompts you to log in to YaniFend (Google / GitHub / Facebook / LinkedIn / email).
 
-> **Supported clients:** connecting to the hosted endpoint directly currently works from **Claude on claude.ai** only. Other MCP clients connecting directly — Claude Code, ChatGPT, Cursor and similar — are refused at sign-in and are not supported yet.
+> **Supported clients:** connecting to the hosted endpoint directly works from **Claude** (claude.ai and the Claude apps), **ChatGPT** and **Grok**. Other MCP clients connecting directly — Claude Code, Cursor and any client whose sign-in returns to a localhost address — are refused at sign-in and are not supported yet.
 
-### claude.ai
+### Claude (claude.ai and the Claude apps)
 
 Add a custom connector:
 - **Name:** YaniFend
 - **URL:** `https://app.yanifend.com/mcp`
 
+### ChatGPT
+
+Works on the free personal plan.
+
+1. In ChatGPT, open **Settings → Security and login** and turn **Developer mode** on.
+2. Open **Plugins**, click **+**, then **Create app → Create MCP App**.
+3. Name it **YaniFend**, set **Server URL** to `https://app.yanifend.com/mcp`, and choose **OAuth** for authentication. ChatGPT finds the sign-in settings itself, so leave the advanced settings as they are.
+4. Tick **I understand and want to continue**, then click **Create**.
+5. Click **Sign in with YaniFend**, sign in the way you normally do, and approve the request.
+6. Back in **Plugins**, open **YaniFend** and click **Refresh** to load its tools.
+
+### Grok
+
+Grok doesn't register itself, so it asks for sign-in details. They are public — nothing here is a secret.
+
+1. In Grok, open **Plugins → New Connector → Custom**.
+2. Name it **YaniFend**, set **Server URL** to `https://app.yanifend.com/mcp`, and click **Add Connector**.
+3. Enter the OAuth credentials:
+   - **Client ID:** `mcp-client`
+   - **Client Secret:** leave empty
+   - **Authorization Endpoint:** `https://app.yanifend.com/auth/realms/yanifend/protocol/openid-connect/auth`
+   - **Token Endpoint:** `https://app.yanifend.com/auth/realms/yanifend/protocol/openid-connect/token`
+   - **Scopes:** `openid`, `email`, `profile`
+   - **Token Auth Method:** none (PKCE only)
+4. Click **Save & Connect**, sign in, and approve the request.
+
 ### Claude Code and other MCP clients
 
-Direct connections to the hosted endpoint are not supported yet: their sign-in callbacks (for Claude Code, a localhost redirect) are refused, so the connection can't complete. Use claude.ai for now.
+Direct connections from Claude Code, Cursor and other clients whose sign-in returns to a localhost address aren't supported yet: their sign-in callbacks are refused, so the connection can't complete. Other assistants haven't been tested. Use Claude, ChatGPT or Grok for now.
 
 ## Alternative: desktop extension / local stdio proxy (this repo)
 
