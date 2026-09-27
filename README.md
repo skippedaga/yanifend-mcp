@@ -12,7 +12,7 @@ YaniFend is a drop-in feedback widget that lets visitors leave structured feedba
 https://app.yanifend.com/mcp
 ```
 
-Streamable HTTP transport, OAuth 2.1 (PKCE + RFC 7591 Dynamic Client Registration). No pre-registration — Claude and ChatGPT register themselves on first connect; Grok uses the public client `mcp-client` with PKCE. Each then prompts you to log in to YaniFend (Google / GitHub / Facebook / LinkedIn / email).
+Streamable HTTP transport, OAuth 2.1 (PKCE + RFC 7591 Dynamic Client Registration). No pre-registration — Claude, ChatGPT and Grok register themselves on first connect, then prompt you to log in to YaniFend (Google / GitHub / Facebook / LinkedIn / email).
 
 > **Supported clients:** connecting to the hosted endpoint directly works from **Claude** (claude.ai and the Claude apps), **ChatGPT** and **Grok**. Other MCP clients connecting directly — Claude Code, Cursor and any client whose sign-in returns to a localhost address — are refused at sign-in and are not supported yet.
 
@@ -35,18 +35,10 @@ Works on the free personal plan.
 
 ### Grok
 
-Grok doesn't register itself, so it asks for sign-in details. They are public — nothing here is a secret.
-
 1. In Grok, open **Plugins → New Connector → Custom**.
-2. Name it **YaniFend**, set **Server URL** to `https://app.yanifend.com/mcp`, and click **Add Connector**.
-3. Enter the OAuth credentials:
-   - **Client ID:** `mcp-client`
-   - **Client Secret:** leave empty
-   - **Authorization Endpoint:** `https://app.yanifend.com/auth/realms/yanifend/protocol/openid-connect/auth`
-   - **Token Endpoint:** `https://app.yanifend.com/auth/realms/yanifend/protocol/openid-connect/token`
-   - **Scopes:** `openid`, `email`, `profile`
-   - **Token Auth Method:** none (PKCE only)
-4. Click **Save & Connect**, sign in, and approve the request.
+2. Name it **YaniFend**, set **Server URL** to `https://app.yanifend.com/mcp`, and click **Add Connector**. There is nothing else to type: Grok registers itself.
+3. A YaniFend sign-in page opens in your browser. Sign in the way you normally do and approve the request.
+4. Start a new chat and ask about your forms.
 
 ### Claude Code and other MCP clients
 
